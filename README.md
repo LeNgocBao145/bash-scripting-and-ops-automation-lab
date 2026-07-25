@@ -1,36 +1,54 @@
-# web01-ops
+# How to run and setup Homework — Bash Scripting & Ops Automation
 
-Operational scripts for a Linux web server: health monitoring, backup, and restore testing.
+Operational Bash scripts for Linux server monitoring and backup automation.
 
-## Structure
+## Project Structure
 
-```
+```text
 web01-ops/
-├── health-check.sh      # Monitor HTTP, disk, CPU, memory
-├── backup.sh            # Backup data + manifest, transfer, rotate old archives
+├── health-check.sh      # Check disk, RAM, services, and HTTP endpoint
+├── backup.sh            # Create archive + manifest, transfer, and rotate old backups
 ├── restore-test.sh      # Extract latest archive and verify manifest checksums
-├── lib/common.sh        # Shared log() and send_alert()
-├── cron/web01-ops.cron  # Crontab entries
-├── examples/            # .env templates
-└── REPORT.md            # Acceptance evidence
+├── lib/common.sh        # Shared log(), send_alert(), and on_error() helpers
+├── cron/web01-ops.cron  # Example crontab entries
+├── examples/            # Environment file templates
+└── REPORT.md            # Lab evidence/screenshots
 ```
+
+## Requirements
+
+- Linux with Bash
+- `curl`, `rsync`, `tar`, `find`, `md5sum`, `mail`, `systemctl`
+- Write permission for log locations
+- If using remote backup destination: SSH key-based access to remote host
 
 ## Setup
 
-**1. Clone / copy to server**
+1. Clone and make scripts executable:
+
 ```bash
 git clone <repo> /opt/web01-ops
 chmod +x /opt/web01-ops/*.sh
 ```
 
-**2. Configure environments**
+2. Create environment files in `/etc` (required by scripts):
+
 ```bash
-cp examples/monitoring.env.example /opt/web01-ops/monitoring.env
-cp examples/backup.env.example     /opt/web01-ops/backup.env
-# Edit both files with your values
+sudo cp /opt/web01-ops/examples/monitoring.env.example /etc/monitoring.env
+sudo cp /opt/web01-ops/examples/backup.env.example     /etc/backup.env
+sudo chmod 600 /etc/monitoring.env /etc/backup.env
+# Edit both files with real values
 ```
 
-**3. Install cron**
+3. Ensure log directories exist (matching your env/cron config):
+
+```bash
+sudo mkdir -p /var/log/web01-ops
+sudo touch /var/log/web01-ops.log /var/log/web01-ops/health-check.log /var/log/web01-ops/backup.log
+```
+
+4. Install cron jobs:
+
 ```bash
 crontab /opt/web01-ops/cron/web01-ops.cron
 ```
@@ -38,28 +56,37 @@ crontab /opt/web01-ops/cron/web01-ops.cron
 ## Manual Run
 
 ```bash
-# Health check
-bash /opt/web01-ops/health-check.sh
-
-# Backup
-bash /opt/web01-ops/backup.sh
-
-# Restore test
-bash /opt/web01-ops/restore-test.sh
+/opt/web01-ops/health-check.sh
+/opt/web01-ops/backup.sh
+/opt/web01-ops/restore-test.sh
 ```
 
 ## Environment Variables
 
-See `examples/monitoring.env.example` and `examples/backup.env.example` for all variables.
+### `/etc/monitoring.env`
 
-| Variable | Used in | Description |
-|----------|---------|-------------|
-| `HTTP_URL` | health-check | URL to probe |
-| `DISK_THRESHOLD` | health-check | Alert if disk % ≥ value |
-| `CPU_THRESHOLD` | health-check | Alert if CPU % ≥ value |
-| `MEM_THRESHOLD` | health-check | Alert if memory % ≥ value |
-| `ALERT_TO` | common.sh / backup | Recipient for email alerts |
-| `SLACK_WEBHOOK` | common.sh | Slack incoming webhook URL |
-| `DATA_DIR` | backup / restore | Directory to archive |
-| `DEST` | backup / restore | Backup destination (local path or user@host:/path) |
-| `RETAIN_DAYS` | backup | Delete archives older than this number of days |
+| Variable | Description |
+|---|---|
+| `DISK_THRESHOLD` | Alert when root disk usage (`/`) is greater than or equal to this percent |
+| `RAM_MIN_FREE` | Alert when free RAM percent is below this value |
+| `SERVICES` | Space-separated systemd service names to check |
+| `HEALTH_URL` | HTTP URL for liveness check |
+| `ALERT_TO` | Email recipient for alerts (leave empty to disable email) |
+| `LOG_FILE` | Log file path used by `lib/common.sh` |
+| `ENABLE_TRAP_TEST` | Set to `1` to intentionally trigger trap test in `health-check.sh` |
+
+### `/etc/backup.env`
+
+| Variable | Description |
+|---|---|
+| `DATA_DIR` | Source directory to archive |
+| `DEST` | Backup destination: local path or `user@host:/path` |
+| `RETAIN_DAYS` | Delete `backup_*.tar.gz` older than this many days |
+| `ALERT_TO` | Email recipient for backup alerts |
+| `LOG_FILE` | Log file path used by `lib/common.sh` |
+
+## Notes
+
+- `backup.sh` excludes `*.log` and `*.tmp` from the archive.
+- `restore-test.sh` verifies the latest backup archive by checking `manifest.txt` with `md5sum -c`.
+- Failed backup runs trigger `BACKUP FAILED` alert via trap in `backup.sh`.
