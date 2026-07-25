@@ -2,6 +2,10 @@
 
 ## Environment setup
 
+I wrap **web endpoint** in a tiny systemd unit called myweb.
+
+
+
 **Email out** — I use `msmtp` with `s-nail` configured to a test mailbox.
 
 **A backup target** — I use a second VM reachable over SSH by key. The VM is configured with `PermitRootLogin no`, `PubkeyAuthentication yes`, `PasswordAuthentication no`.
@@ -77,8 +81,6 @@
 
   ![alt text](screenshots/task2-5.png)
 
-**Submit:** `backup.sh`, `restore-test.sh`, `backup.env.example`, and screenshots of a successful run, the archive listing at the destination, the restore-test manifest check, and the failure email.
-
 ---
 
 ## Task 3 — Error trapping and linting
@@ -91,9 +93,38 @@
 
   ![alt text](screenshots/task3-1.png)  
 
+  ![alt text](screenshots/task3-3.png)  
+
+  **Note**: By default, Bash shell options `set -e` and `trap '...' ERR` **do not inherit the `ERR` trap inside shell functions**. If a command fails within a function, the script may terminate immediately without executing the custom error handler (`on_error`), leading to unhandled crashes and missing log context. 
+
+  ![alt text](screenshots/task3-4.png)
+
+  **Solution:** Enable the **`-E`** flag (or `set -o errtrace`) at the beginning of the script:
+  ```bash
+  set -euo pipefail
+  set -E  # Equivalent to: set -eEuo pipefail
+
+  Because I use these commands to force error stops the script
+
+  ```bash
+  run_error_trap_test() {
+    if [[ "${ENABLE_TRAP_TEST:-0}" == "1" ]]; then
+      tar -czf out.tgz /no/such/dir
+      log "Running ERR trap test with a real failing command..."
+      log "UNREACHABLE: this line must not run"
+    fi
+  }
+  ```
+
 - `shellcheck *.sh` reports **no warnings** (paste the clean output).
 
-  ![alt text](screenshots/task3-2.png)  
+  ![alt text](screenshots/task3-2.png)   
+
+  ```bash
+  [redhat@linux-lab bash-scripting-and-ops-automation]$ sudo shellcheck -x -S warning *.sh
+  [sudo] password for redhat:
+  [redhat@linux-lab bash-scripting-and-ops-automation]$
+  ```
 
 
 **Submit:** the instrumented script, a screenshot of the error alert, and before/after `shellcheck` output.

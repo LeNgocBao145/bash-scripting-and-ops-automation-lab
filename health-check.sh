@@ -11,6 +11,16 @@ add_alert() {
   ALERTS+=("$1")
 }
 
+trap 'on_error $LINENO "$BASH_COMMAND"' ERR
+
+run_error_trap_test() {
+  if [[ "${ENABLE_TRAP_TEST:-0}" == "1" ]]; then
+    tar -czf out.tgz /no/such/dir
+    log "Running ERR trap test with a real failing command..."
+    log "UNREACHABLE: this line must not run"
+  fi
+}
+
 check_disk() {
   local usage
   log "Checking disk usage..."
@@ -58,6 +68,7 @@ check_http() {
   fi
 }
 
+run_error_trap_test
 check_disk
 check_mem
 check_services

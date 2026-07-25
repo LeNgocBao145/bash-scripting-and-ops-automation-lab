@@ -17,5 +17,17 @@ send_alert() {
 
   if [[ -n "${ALERT_TO:-}" ]]; then
     printf '%s\n' "$body" | mail -s "[web01-ops][$host] $subject" "$ALERT_TO"
+  else
+    log "ALERT_TO is empty; skipping email delivery"
   fi
+}
+
+# detailed handler: line + command + exit code
+on_error() {
+    local exit=$? line=$1 cmd=$2
+    local body="Line: $line
+Cmd:  $cmd
+Exit: $exit
+Host: $(hostname)"
+    send_alert "SCRIPT FAILED" "$body"
 }
