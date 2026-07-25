@@ -4,7 +4,22 @@
 
 I wrap **web endpoint** in a tiny systemd unit called myweb.
 
+`/etc/systemd/system/myweb.service`
+```bash
+[Unit]
+Description=Simple Python Web Server for web01-data
+After=network.target
 
+[Service]
+Type=simple
+User=redhat
+WorkingDirectory=/home/redhat/web01-data
+ExecStart=/usr/bin/python3 -m http.server 8080
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
 
 **Email out** — I use `msmtp` with `s-nail` configured to a test mailbox.
 
